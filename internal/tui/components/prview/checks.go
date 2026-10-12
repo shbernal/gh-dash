@@ -102,13 +102,20 @@ func (m *Model) viewChecksStatus() (string, checkSectionStatus) {
 		statStrs = append(statStrs, fmt.Sprintf("%d failing", stats.failed))
 	}
 	if stats.awaitingApproval > 0 {
-		statStrs = append(
-			statStrs,
-			fmt.Sprintf(
-				"%d awaiting approval. Press %s to run.",
-				stats.awaitingApproval,
-				m.ctx.Styles.KeyHint.Render(keys.PRKeys.ApproveWorkflows.Keys()[0])),
-		)
+		if m.pr.Data.Primary.Repository.ViewerCanPush() {
+			statStrs = append(
+				statStrs,
+				fmt.Sprintf(
+					"%d awaiting approval. Press %s to run.",
+					stats.awaitingApproval,
+					m.ctx.Styles.KeyHint.Render(keys.PRKeys.ApproveWorkflows.Keys()[0])),
+			)
+		} else {
+			statStrs = append(
+				statStrs,
+				fmt.Sprintf("%d awaiting approval from a maintainer", stats.awaitingApproval),
+			)
+		}
 	}
 	if stats.inProgress > 0 {
 		statStrs = append(statStrs, fmt.Sprintf("%d in progress", stats.inProgress))

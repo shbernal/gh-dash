@@ -537,3 +537,36 @@ func TestViewChecksBar_NarrowWidth_NoPanic(t *testing.T) {
 		}, "viewChecksBar panicked with width=%d", width)
 	}
 }
+
+func TestViewChecksStatus_AwaitingApprovalHint(t *testing.T) {
+	opts := checksTestOptions{
+		checkSuites: data.CheckSuites{
+			TotalCount: 1,
+			Nodes: []data.CheckSuiteNode{
+				makeCheckSuite("PR Test", "COMPLETED", "ACTION_REQUIRED"),
+			},
+		},
+		checkRuns:   []data.CheckRun{},
+		rollupState: "SUCCESS",
+	}
+
+	tests := []struct {
+		permission string
+		want       string
+		notWant    string
+	}{
+		{permission: "WRITE", want: "Press", notWant: "from a maintainer"},
+		{permission: "ADMIN", want: "Press", notWant: "from a maintainer"},
+		{permission: "READ", want: "from a maintainer", notWant: "Press"},
+		{permission: "", want: "from a maintainer", notWant: "Press"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.permission, func(t *testing.T) {
+			m := newTestModelForChecks(t, opts)
+			m.pr.Data.Primary.Repository.ViewerPermission = tt.permission
+			got, _ := m.viewChecksStatus()
+			require.Contains(t, got, tt.want)
+			require.NotContains(t, got, tt.notWant)
+		})
+	}
+}

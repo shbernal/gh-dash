@@ -429,6 +429,24 @@ func ApproveWorkflows(
 	startCmd := ctx.StartTask(task)
 
 	return tea.Batch(startCmd, func() tea.Msg {
+		// Approving fork workflow runs needs write access, so check up front
+		// instead of letting each approve call fail.
+		permCmd := exec.Command("gh", "api", fmt.Sprintf("repos/%s", repo),
+			"--jq", ".permissions.push")
+		permOut, err := permCmd.Output()
+		if err == nil && strings.TrimSpace(string(permOut)) != "true" {
+			return constants.TaskFinishedMsg{
+				TaskId:      taskId,
+				SectionId:   section.Id,
+				SectionType: section.Type,
+				Err: fmt.Errorf(
+					"you don't have permission to approve workflows on %s, a maintainer must approve them",
+					repo,
+				),
+				Msg: UpdatePRMsg{PrNumber: prNumber},
+			}
+		}
+
 		// Step 1: Get head SHA
 		shaCmd := exec.Command("gh", "pr", "view", fmt.Sprint(prNumber),
 			"-R", repo, "--json", "headRefOid", "--jq", ".headRefOid")
@@ -484,6 +502,8 @@ func ApproveWorkflows(
 					lastErr = fmt.Errorf(
 						"workflow not approvable via API (only fork PR workflows can be approved)",
 					)
+				} else if msg := strings.TrimSpace(outStr); msg != "" {
+					lastErr = fmt.Errorf("failed to approve run %s: %s", runId, msg)
 				} else {
 					lastErr = fmt.Errorf("failed to approve run %s: %w", runId, err)
 				}

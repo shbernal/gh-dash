@@ -25,5 +25,16 @@ type Repository struct {
 	Owner                 Owner
 	NameWithOwner         string
 	IsArchived            bool
+	ViewerPermission      string
 	BranchProtectionRules BranchProtectionRules `graphql:"branchProtectionRules(first: 1)"`
+}
+
+// ViewerCanPush reports whether the viewer has write access to the repository,
+// which GitHub requires to approve workflow runs from fork pull requests.
+func (r Repository) ViewerCanPush() bool {
+	switch r.ViewerPermission {
+	case "ADMIN", "MAINTAIN", "WRITE":
+		return true
+	}
+	return false
 }
